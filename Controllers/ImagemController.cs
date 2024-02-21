@@ -32,9 +32,9 @@ public class ImagemController : ControllerBase
                 if (unknownEncoding != null)
                 {
 
-                    var unknownData = new { name = "Lusca", face_embeding = unknownEncoding.GetRawEncoding() };
+                    var unknownData = new { name = "Ramon Rodrigues", face_embeding = unknownEncoding.GetRawEncoding(), position = "frontal" };
                     var unknownJson = JsonSerializer.Serialize(unknownData);
-                    System.IO.File.WriteAllText("C:/Users/Luscarvalho/Pictures/teste/faceEncodingUnknow.json", unknownJson);
+                    System.IO.File.WriteAllText("C:/Users/Luscarvalho/Pictures/Teste-images/pessoa.json", unknownJson);
 
                     var pessoas = JsonSerializer.Deserialize<List<Pessoa>>(System.IO.File.ReadAllText
                         ("C:/Users/Luscarvalho/Pictures/teste/FacesKnow.json"));
