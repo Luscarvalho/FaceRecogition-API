@@ -1,22 +1,33 @@
-public class ResponseSource
-{
-    public string name { get; set; }
-    public string position { get; set; }
-}
+using System.ComponentModel.DataAnnotations;
 
-public class Hit
+namespace API.Model;
+
+public class ResponseObject
 {
-    public ResponseSource _source { get; set; }
-    public double _score { get; set; }
+    [Required]
+    public Hits? hits { get; set; }
 }
 
 public class Hits
 {
-    public List<Hit> hits { get; set; }
-    public double max_score { get; set; }
+    [Required]
+    public double? max_score { get; set; }
+    [Required]
+    public List<Hit>? hits { get; set; }
 }
 
-public class ResponseObject
+public class Hit
 {
-    public Hits hits { get; set; }
+    [Required]
+    public Source? _source { get; set; }
+    [Required]
+    public double? _score { get; set; }
+}
+
+public class Source
+{
+    [Required]
+    public string? name { get; set; }
+    [Required]
+    public string? position { get; set; }
 }

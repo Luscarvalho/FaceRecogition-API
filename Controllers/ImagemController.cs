@@ -25,11 +25,35 @@ public class ImagemController : ControllerBase
                 imagemModel.Imagem.CopyTo(stream);
             }
 
+            using (System.Drawing.Image img = System.Drawing.Image.FromFile(image))
+            {
+                int imgWidth = img.Width;
+                int imgHeight = img.Height;
+
+                Console.WriteLine($"Largura da imagem: {imgWidth}, Altura da imagem: {imgHeight}");
+            }
+
             string modelsDirectory = Environment.CurrentDirectory + "\\models";
             using (var faceRecognition = FaceRecognition.Create(modelsDirectory))
             using (var unknownImage = FaceRecognition.LoadImageFile(image))
             {
-                var unknownEncoding = faceRecognition.FaceEncodings(unknownImage).FirstOrDefault();
+                var faceLocations = faceRecognition.FaceLocations(unknownImage);
+                var sortedFaces = faceLocations.OrderByDescending
+                    (rect => (rect.Right - rect.Left) * (rect.Bottom - rect.Top)).ToList();
+                var mainFace = sortedFaces.First();
+                int width = mainFace.Right - mainFace.Left;
+                int height = mainFace.Bottom - mainFace.Top;
+
+                Console.WriteLine($"Largura: {width}, Altura: {height}");
+
+                if (width < 150 || height < 150)
+                {
+                    return BadRequest("Muito longe, aproxime mais o rosto!");
+                }
+
+                List<Location> mainFaceList = new List<Location>() { mainFace };
+
+                var unknownEncoding = faceRecognition.FaceEncodings(unknownImage, mainFaceList).FirstOrDefault();
                 if (unknownEncoding != null)
                 {
                     using var httpClient = new HttpClient();
@@ -39,7 +63,7 @@ public class ImagemController : ControllerBase
                         {
                             field = "face_embeding",
                             query_vector = unknownEncoding.GetRawEncoding(),
-                            k = 2,
+                            k = 3,
                             num_candidates = 10
                         },
                         _source = new[] { "name", "position" }
@@ -56,23 +80,31 @@ public class ImagemController : ControllerBase
                         var responseContent = await response.Content.ReadAsStringAsync();
                         var responseObject = JsonSerializer.Deserialize<ResponseObject>(responseContent);
 
-                        var hits = responseObject.hits.hits.Select(hit => new
+                        if (responseObject?.hits?.hits != null)
                         {
-                            name = hit._source.name,
-                            score = hit._score,
-                            position = hit._source.position
-                        }).ToList();
+                            var hits = responseObject.hits.hits.Select(hit => new
+                            {
+                                hit._source?.name,
+                                score = hit._score,
+                                hit._source?.position
+                            }).ToList();
 
-                        var importantInfo = new
+                            var importantInfo = new
+                            {
+                                responseObject.hits.max_score,
+                                hits
+                            };
+
+                            var importantInfoJson = JsonSerializer.Serialize(importantInfo);
+
+                            Console.WriteLine(importantInfoJson);
+                            return Ok(importantInfoJson);
+                        }
+                        else
                         {
-                            max_score = responseObject.hits.max_score,
-                            hits = hits
-                        };
-
-                        var importantInfoJson = JsonSerializer.Serialize(importantInfo);
-
-                        Console.WriteLine(importantInfoJson);
-                        return Ok(importantInfoJson);
+                            Console.WriteLine("Erro: responseObject, responseObject.hits ou responseObject.hits.hits é nulo");
+                            return BadRequest("Erro ao processar a resposta");
+                        }
                     }
                     else
                     {
@@ -113,7 +145,13 @@ public class ImagemController : ControllerBase
             using (var faceRecognition = FaceRecognition.Create(modelsDirectory))
             using (var unknownImage = FaceRecognition.LoadImageFile(image))
             {
-                var unknownEncoding = faceRecognition.FaceEncodings(unknownImage).FirstOrDefault();
+                var faceLocations = faceRecognition.FaceLocations(unknownImage);
+                var sortedFaces = faceLocations.OrderByDescending
+                    (rect => (rect.Right - rect.Left) * (rect.Bottom - rect.Top)).ToList();
+                var mainFace = sortedFaces.First();
+                List<Location> mainFaceList = new List<Location>() { mainFace };
+
+                var unknownEncoding = faceRecognition.FaceEncodings(unknownImage, mainFaceList).FirstOrDefault();
                 if (unknownEncoding != null)
                 {
                     var requestBody = new

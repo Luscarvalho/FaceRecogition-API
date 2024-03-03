@@ -1,9 +1,11 @@
-﻿using FaceRecognitionDotNet;
+﻿using System.ComponentModel.DataAnnotations;
 
 namespace API.Model;
 
 public class Pessoa
 {
+    [Required]
     public string? Nome { get; set; }
-    public string Photo { get; set; }
+    [Required]
+    public string? Photo { get; set; }
 }
