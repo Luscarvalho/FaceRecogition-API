@@ -40,7 +40,13 @@ public class ImagemController : ControllerBase
                 var faceLocations = faceRecognition.FaceLocations(unknownImage);
                 var sortedFaces = faceLocations.OrderByDescending
                     (rect => (rect.Right - rect.Left) * (rect.Bottom - rect.Top)).ToList();
-                var mainFace = sortedFaces.First();
+
+                var mainFace = sortedFaces.FirstOrDefault();
+                if (mainFace == null)
+                {
+                    return BadRequest("Nenhuma face encontrada na imagem");
+                }
+
                 int width = mainFace.Right - mainFace.Left;
                 int height = mainFace.Bottom - mainFace.Top;
 
@@ -54,24 +60,25 @@ public class ImagemController : ControllerBase
                 List<Location> mainFaceList = new List<Location>() { mainFace };
 
                 var unknownEncoding = faceRecognition.FaceEncodings(unknownImage, mainFaceList).FirstOrDefault();
-                if (unknownEncoding != null)
+
+                using var httpClient = new HttpClient();
+                var requestBody = new
                 {
-                    using var httpClient = new HttpClient();
-                    var requestBody = new
+                    knn = new
                     {
-                        knn = new
-                        {
-                            field = "face_embeding",
-                            query_vector = unknownEncoding.GetRawEncoding(),
-                            k = 3,
-                            num_candidates = 10
-                        },
-                        _source = new[] { "name", "position" }
-                    };
+                        field = "face_embeding",
+                        query_vector = unknownEncoding.GetRawEncoding(),
+                        k = 3,
+                        num_candidates = 10
+                    },
+                    _source = new[] { "name", "position" }
+                };
 
-                    var requestJson = JsonSerializer.Serialize(requestBody);
-                    System.IO.File.WriteAllText("C:/Users/Luscarvalho/Pictures/Teste-images/pessoa.json", requestJson);
+                var requestJson = JsonSerializer.Serialize(requestBody);
+                System.IO.File.WriteAllText("C:/Users/Luscarvalho/Pictures/Teste-images/pessoa.json", requestJson);
 
+                try
+                {
                     var content = new StringContent(requestJson, Encoding.UTF8, "application/json");
                     var response = await httpClient.PostAsync("http://localhost:9200/faces/_knn_search", content);
 
@@ -112,12 +119,11 @@ public class ImagemController : ControllerBase
                         return BadRequest("Imagem não salva");
                     }
                 }
-                else
+                catch (Exception ex)
                 {
-                    BadRequest("Nenhuma face encontrada na imagem");
+                    return BadRequest("Erro de conexão com o servidor");
                 }
             }
-            return Ok("Imagem recebida com sucesso!");
         }
         else
         {
@@ -148,22 +154,28 @@ public class ImagemController : ControllerBase
                 var faceLocations = faceRecognition.FaceLocations(unknownImage);
                 var sortedFaces = faceLocations.OrderByDescending
                     (rect => (rect.Right - rect.Left) * (rect.Bottom - rect.Top)).ToList();
-                var mainFace = sortedFaces.First();
+                var mainFace = sortedFaces.FirstOrDefault();
+                if (mainFace == null)
+                {
+                    return BadRequest("Nenhuma face encontrada na imagem");
+                }
                 List<Location> mainFaceList = new List<Location>() { mainFace };
 
                 var unknownEncoding = faceRecognition.FaceEncodings(unknownImage, mainFaceList).FirstOrDefault();
-                if (unknownEncoding != null)
-                {
-                    var requestBody = new
-                    {
-                        name = nome,
-                        face_embeding = unknownEncoding.GetRawEncoding(),
-                        position = "frontal"
-                    };
-                    var requestJson = JsonSerializer.Serialize(requestBody);
-                    //System.IO.File.WriteAllText("C:/Users/Luscarvalho/Pictures/Teste-images/pessoa.json", requestJson);
 
-                    using var httpClient = new HttpClient();
+                var requestBody = new
+                {
+                    name = nome,
+                    face_embeding = unknownEncoding?.GetRawEncoding(),
+                    position = "frontal"
+                };
+                var requestJson = JsonSerializer.Serialize(requestBody);
+                //System.IO.File.WriteAllText("C:/Users/Luscarvalho/Pictures/Teste-images/pessoa.json", requestJson);
+
+                using var httpClient = new HttpClient();
+
+                try
+                {
                     var content = new StringContent(requestJson, Encoding.UTF8, "application/json");
                     var response = await httpClient.PostAsync("http://localhost:9200/faces/_doc/", content);
 
@@ -173,9 +185,9 @@ public class ImagemController : ControllerBase
                         return BadRequest("Imagem não salva");
                     }
                 }
-                else
+                catch (Exception ex)
                 {
-                    BadRequest("Nenhuma face encontrada na imagem");
+                    return BadRequest("Erro de conexão com o servidor");
                 }
             }
             return Ok("Imagem recebida e salva com sucesso!");
